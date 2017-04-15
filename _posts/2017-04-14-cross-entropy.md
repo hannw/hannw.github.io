@@ -2,7 +2,7 @@
 layout: post
 title: "Cross entropy"
 description: "Demystifying cross entropy."
-tags: [loss function, machine learning]
+tags: [loss function, machinelearning]
 ---
 
 Under construction.
