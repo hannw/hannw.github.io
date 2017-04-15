@@ -1,6 +1,7 @@
 # Mandatory settings
 
 name: Hann
+subtitle: "AI, ML, Data Science"
 paginate: 25
 url: hannw.github.io # add your site url (format: http://example.com/)
 blog_theme: light # Or use dark
