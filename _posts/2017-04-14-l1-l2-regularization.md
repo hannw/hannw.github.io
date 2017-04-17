@@ -35,9 +35,9 @@ Similarly, the L2 equation will give us our regular "circle", as the formula def
 
 {% include image.html path="L1L2/L2_contour.png" path-detail="L1L2/L2_contour.png" alt="L2 contour" %}
 
-Now, what happens when you have another competing error term? We can check in the following figure; the error surface (for instance, MSE) is colored in orange red. The regularization term and the error term are competing because when you optimize the loss you are finding a point in the parameter space where the sum of the two terms are the minimum. When you give in one inch, the other terms will grow, so the terms are basically "competing" for a position. If you change the regularization "strength", \\(\\lambda\\), the cometition changes, and the global optimum settle to a different point.
+Now, what happens when you have another competing error term? We can check in the following figure; the error surface (for instance, MSE) is colored in orange red. The regularization term and the error term are competing because when you optimize the loss you are finding a point in the parameter space where the sum of the two terms are the minimum. When one losses, the other grows, so the terms are basically "competing" for a position during optimization. If you change the regularization "strength", \\(\\lambda\\), the cometition changes, and the global optimum settle to a different point.
 
-The sparsity of the L1 term comes from the fact that the diamond shape has a higher chance of settling to any of the corners during optimization. In the 2d case, finding optimum in the corner means that one of the parameter is zero. Imaging in multidimensional case, the corner will be a hyper corner, where only some of the parameters are zero. These corners are the cause of the sparsity during optimization.
+The sparsity of the L1 term comes from the fact that the diamond shape has a higher chance of settling to any of the corners during optimization. In the 2d case, finding optimum in the corner means that one of the parameter is zero. Imaging in multidimensional case, the corners will be hyper corners, where only some of the parameters are zero. These corners are the cause of the sparsity during optimization.
 
 {% include image.html path="L1L2/L1_error_contour.png" path-detail="L1L2/L1_error_contour.png" alt="L1 contour" %}
 
@@ -45,7 +45,7 @@ If you look at the L2 surface, the cometition changes. The L2 surface does not f
 
 {% include image.html path="L1L2/L2_error_contour.png" path-detail="L1L2/L2_error_contour.png" alt="L1 contour" %}
 
-So, if you want to do feature selection, go with L1 regularization. The exact opposite applies to L2; that is, L2 will tend to preserve all the terms in your parameters. As some say they tend to see performance boost using L2; they are most likely overfitting their data by memorizing them in the parameter space.
+So, if you want to do feature selection, go with L1 regularization. The exact opposite applies to L2; that is, L2 will tend to preserve all the terms in your parameters. As some say they tend to see performance boost using L2; they are most likely overfitting by memorizing their data in the parameter space.
 
 Give'em the diamond ring! That's all your interviewer wants to see.
 
