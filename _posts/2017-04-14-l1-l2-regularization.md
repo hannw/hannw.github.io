@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "L1, L2 regularization."
+title: "L1, L2 regularization demystified."
 description: "Breaking down L1, L2 regularization."
 tags: [regularization, machine learning]
 ---
@@ -29,7 +29,7 @@ $$g(w) = \sum_{j=1}^k |w_j|.$$
 
 {% include image.html path="L1L2/L1_contour.png" path-detail="L1L2/L1_contour.png" alt="L1 contour" %}
 
-The contour shows up diamond-shaped, and the diamond grows larger as the error increases. Each line is called the L1 circle. Why is it called "circle"? Imagine you are an alien who can only measure distance by using a tool perpendicular to the axis and summing the measurements, then every point in the line will have equal distance to the center. The L1 function, \\(g\\) defines exactly the distance to center.
+The contour shows up diamond-shaped, and the diamond grows larger as the error increases. Each line is called the L1 circle. Why is it called "circle"? Imagine you are an alien who can only measure distance of a point to the origin by using a tool perpendicular to the axes and summing the measurements, then every point in the line will have equal distance to the center. The L1 function, \\(g\\) defines exactly the distance to center.
 
 Similarly, the L2 equation will give us our regular "circle", as the formula defines exactly the euclidean distance.
 
@@ -48,3 +48,7 @@ If you look at the L2 surface, the cometition changes. The L2 surface does not f
 So, if you want to do feature selection, go with L1 regularization. The exact opposite applies to L2; that is, L2 will tend to preserve all the terms in your parameters. As some say they tend to see performance boost using L2; they are most likely overfitting their data by memorizing them in the parameter space.
 
 Give'em the diamond ring! That's all your interviewer wants to see.
+
+Some useful links.
+1. [Wiki - Regularization](https://en.wikipedia.org/wiki/Regularization_(mathematics))
+2. [Quora thread on L1 L2](https://www.quora.com/What-is-the-difference-between-L1-and-L2-regularization)
