@@ -11,6 +11,8 @@ Let me head straight to the conclusion now. You will get sparsity in your parame
 
  Let's say you want to find the optimal solution to a regression problem to a general, nonlinear function \\(f\\) by minimizing the following formulae. In the case of L1,
 
+ \\[\\sum_{i=1}^{n}\\]
+
 {% raw %}
 $$\text{Loss}_{\text(L1)} =  \text{MSE}(D, \mathbf{w}) + \text{L1}(\mathbf{w}) =  \sum_{i=1}^{n} (f(x_i;\mathbf{w}) - y_i)^2 + \lambda \sum_{j=1}^k |w_j|.$$
 {% endraw %}

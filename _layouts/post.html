@@ -2,6 +2,17 @@
 <html lang="en">
 {% include head.html %}
 <body>
+
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+  <script>if (typeof MathJax != "undefined" && typeof MathJax.Hub != "undefined") 
+                    MathJax.Hub.Queue(['Typeset', MathJax.Hub]);</script>
+  <script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function () {
+    document.getElementById("hide_page").style.visibility = "";
+  });
+</script>
+
+<div id="hide_page" style="visibility:hidden">
   <main role="main">
     <div class="grid grid-centered">
       <div class="grid-cell">
@@ -67,5 +78,6 @@
     </div>
   </main>
   {% include javascripts.html %}
+</div>
 </body>
 </html>
