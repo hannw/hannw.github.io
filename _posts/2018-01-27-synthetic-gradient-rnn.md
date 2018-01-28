@@ -9,6 +9,8 @@ Synthetic gradient, or the decoupled neural interface (DNI), was probably the be
 
 In terms of recurrent neural network, it has some other important implication. Before we had synthetic gradient, while training a RNN with long time span, we can only resort to truncated back propagation through time. It has been shown that being able to persist the hidden state through time helps with the trianing. However, without propagating the gradient from the future, the error signal cannot reach an correct the mistake made a long time ago. Now, by using synthetic gradient, we can create an unbiased estimate of the gradient, therefore making the back propagation through time of a infinite long RNN possible.
 
+{% include image.html path="SGRNN/sgrnn.gif" path-detail="SGRNN/sgrnn.gif" alt="SGRNN" %}
+
 Given all these theoretical benefit, I cannot wait to jump on to the bandwagon and start training all my RNNs by synthetic gradient, but I just could not find an open source implementation of synthetic gradient written in tensorflow. After some digging, here is one implementation I came up with.
 
 ## Preparing the Training Data

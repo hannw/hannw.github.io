@@ -47,8 +47,6 @@ If you look at the L2 surface, the cometition changes. The L2 surface does not f
 
 So, if you want to do feature selection, go with L1 regularization. The exact opposite applies to L2; that is, L2 will tend to preserve all the terms in your parameters. As some say they tend to see performance boost using L2; they are most likely overfitting by memorizing their data in the parameter space.
 
-Give'em the diamond ring! That's all your interviewer wants to see.
-
 Some useful links.
 1. [Wiki - Regularization](https://en.wikipedia.org/wiki/Regularization_(mathematics))
 2. [Quora thread on L1 L2](https://www.quora.com/What-is-the-difference-between-L1-and-L2-regularization)
