@@ -5,11 +5,10 @@ description: "The theory of synthetic gradient for RNN, it's implications, and h
 tags: [metalearning, machinelearning]
 ---
 
-Synthetic gradient, or the decoupled neural interface (DNI), was probably the best paper I read about since last year. Synthetic gradient manages to decouple all layers of a deep network, making asynchronous training possible. Furthermore, it unifies the theory of reinforcement learning and supervised training into a single framework.
+Synthetic gradient, or the decoupled neural interface (DNI), was probably the most exciting paper I read about since last year. Synthetic gradient manages to decouple all layers of a deep network, making asynchronous training possible. Furthermore, it unifies the theory of reinforcement learning and supervised training into a single framework.
 
-In terms of recurrent neural network, it has some other important implication. Before we had synthetic gradient, while training a RNN with long time span, we can only resort to truncated back propagation through time. It has been shown that being able to persist the hidden state through time helps with the trianing. However, without propagating the gradient from the future, the error signal cannot reach and correct the mistake made a long time ago. Now, by using synthetic gradient, we can create an unbiased estimate of the gradient, therefore making the back propagation through time of a infinite long RNN possible.
+In terms of recurrent neural network, it has some other important implications. Before, while training a RNN with long time span, we can only use truncated back propagation through time. It has been shown that being able to persist the hidden state through time helps with the trianing. However, without propagating the gradient from the future, the error signal cannot reach and correct the mistake made a long time ago. Now, by using synthetic gradient, we can create an unbiased estimate of the gradient, therefore making the back propagation through time of a infinite long RNN possible.
 
-<!-- {% include image.html path="SGRNN/sgrnn.gif" path-detail="SGRNN/sgrnn.gif" alt="SGRNN" %} -->
 
 Given all these theoretical benefit, I cannot wait to jump on to the bandwagon and start training all my RNNs by synthetic gradient, but I just could not find an open source implementation of synthetic gradient written in tensorflow. After some digging, here is one implementation I came up with.
 
@@ -69,6 +68,8 @@ After preparing the data, we feed the data points into state saving queue.
 ```
 
 For more information about the state saving queue, check out the RNN tutorial in [Tensorflow Dev Summet 2017](https://www.youtube.com/watch?v=RIR_-Xlbp7s).
+
+Note that in the original paper, they store \\(\Delta t + 1\\) time span for each \\(\Delta t\\) time span. I chose to store \\(2 \Delta t\\) inputs and labels, since the future information \\(\Delta t \leq t < 2\Delta t\\) could be useful for computing synthetic gradient, if you have other customized architecture of DNI.
 
 ## Stitching The Networks Together
 
