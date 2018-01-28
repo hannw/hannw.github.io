@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="538e3d0d-66d8-4f6f-ad4a-d4ca7f7bf04c" name="Default" comment="" />
+    <list default="true" id="538e3d0d-66d8-4f6f-ad4a-d4ca7f7bf04c" name="Default" comment="">
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/_assets/stylesheets/_variables.scss" afterPath="$PROJECT_DIR$/_assets/stylesheets/_variables.scss" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/_posts/2018-01-27-synthetic-gradient-rnn.md" afterPath="$PROJECT_DIR$/_posts/2018-01-27-synthetic-gradient-rnn.md" />
+    </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
     <option name="SHOW_DIALOG" value="false" />

@@ -7,9 +7,9 @@ tags: [metalearning, machinelearning]
 
 Synthetic gradient, or the decoupled neural interface (DNI), was probably the best paper I read about since last year. Synthetic gradient manages to decouple all layers of a deep network, making asynchronous training possible. Furthermore, it unifies the theory of reinforcement learning and supervised training into a single framework.
 
-In terms of recurrent neural network, it has some other important implication. Before we had synthetic gradient, while training a RNN with long time span, we can only resort to truncated back propagation through time. It has been shown that being able to persist the hidden state through time helps with the trianing. However, without propagating the gradient from the future, the error signal cannot reach an correct the mistake made a long time ago. Now, by using synthetic gradient, we can create an unbiased estimate of the gradient, therefore making the back propagation through time of a infinite long RNN possible.
+In terms of recurrent neural network, it has some other important implication. Before we had synthetic gradient, while training a RNN with long time span, we can only resort to truncated back propagation through time. It has been shown that being able to persist the hidden state through time helps with the trianing. However, without propagating the gradient from the future, the error signal cannot reach and correct the mistake made a long time ago. Now, by using synthetic gradient, we can create an unbiased estimate of the gradient, therefore making the back propagation through time of a infinite long RNN possible.
 
-{% include image.html path="SGRNN/sgrnn.gif" path-detail="SGRNN/sgrnn.gif" alt="SGRNN" %}
+<!-- {% include image.html path="SGRNN/sgrnn.gif" path-detail="SGRNN/sgrnn.gif" alt="SGRNN" %} -->
 
 Given all these theoretical benefit, I cannot wait to jump on to the bandwagon and start training all my RNNs by synthetic gradient, but I just could not find an open source implementation of synthetic gradient written in tensorflow. After some digging, here is one implementation I came up with.
 
@@ -67,3 +67,42 @@ After preparing the data, we feed the data points into state saving queue.
       pad=True)
   return batch
 ```
+
+For more information about the state saving queue, check out the RNN tutorial in [Tensorflow Dev Summet 2017](https://www.youtube.com/watch?v=RIR_-Xlbp7s).
+
+## Stitching The Networks Together
+
+The hardest part in implementing the synthetic gradient is to figure out which exactly hidden states to use while calculating the synthetic gradient and it's target. To make the steps slightly clearer for the sack of implementation, let's rederive the equations. The total gradient of a RNN can be written as the follwing.
+
+{% raw %}
+$$
+\begin{align*}
+\sum^{\infty}_{\tau=t} \frac{\partial L_\tau}{\partial \theta}
+&= \sum^{t + \Delta t}_{\tau = t} \frac{\partial L_\tau}{\partial \theta} + (\sum^{\infty}_{\tau = t + \Delta t} \frac{\partial L_\tau}{\partial h_{t + \Delta t -1}}) \frac{\partial h_{t+ \Delta t - 1}}{\partial \theta} \\
+&=\sum^{t + \Delta t}_{\tau = t} \frac{\partial L_\tau}{\partial \theta} + \delta_{t + \Delta t} \frac{\partial h_{t + \Delta t - 1}}{\partial \theta}
+\end{align*}$$
+{% endraw %}
+
+where the target gradient is defined as
+{% raw %}
+$$
+\delta_t \equiv \sum^{\infty}_{\tau = t} \frac{\partial L_\tau}{\partial h_{t -1}}
+$$
+{% endraw %}
+
+We can ask the rnn to synthesize the gradient using a linear approximator.
+{% raw %}
+$$
+\hat{\delta}_t = f(h_t) = W h_t + b
+$$
+{% endraw %}
+
+Since the target gradient is not tracktable, we can bootstrap the gradient using the following trick. Suppose in a time span, \\(\Delta t\\),
+
+{% raw %}
+$$
+\delta_t = \sum_{\tau=t}^{t+\Delta t -1} \frac{\partial L_\tau}{\partial h_{t-1}} + \delta_{t + \Delta t}\frac{\partial h_{t + \Delta t - 1}}{\partial h_{t-1}}
+$$
+{% endraw %}
+
+where \\(h_{t-1}\\) is the initial hidden state, and \\(h_{t + \Delta t-1}\\) is the final state in the time span. This formula says that the target for synthetic gradient is the gradient of the loss in the time span with respect to the initial state, plus the synthetic gradient in the next time span times the derivative of the last hidden state with respect to the initial state.
