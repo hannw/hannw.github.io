@@ -61,8 +61,5 @@ gems:
   - jekyll-paginate
   - jekyll-sitemap
   - jemoji
-  - jekyll-seo-tag
 paginate_path: "/posts/page/:num/"
 permalink: posts/:slug
-plugins_dir:
-  - jekyll-seo-tag
