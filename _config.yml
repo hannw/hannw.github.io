@@ -10,7 +10,7 @@ blog_theme: light # Or use dark
 
 about_enabled: true # Change to true if you wish to show an icon in the navigation that redirects to the about page
 discus_identifier: hannw-github-io # Add your Disqus identifier
-ga_analytics: # Add your GA Tracking Id
+ga_analytics: UA-113253527-1 # Add your GA Tracking Id
 local_fonts: false # Change to true if you wish to use local fonts
 rss_enabled: false # Change to false if not
 social:
@@ -61,5 +61,8 @@ gems:
   - jekyll-paginate
   - jekyll-sitemap
   - jemoji
+  - jekyll-seo-tag
 paginate_path: "/posts/page/:num/"
 permalink: posts/:slug
+plugins_dir:
+  - jekyll-seo-tag
