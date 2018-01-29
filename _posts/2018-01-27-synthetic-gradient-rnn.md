@@ -9,7 +9,7 @@ Here I described a way to implement [Synthetic Gradient](https://arxiv.org/abs/1
 
 Synthetic gradient, or the decoupled neural interface (DNI), was probably the most exciting paper I read about last year. Synthetic gradient manages to decouple all layers of a deep network, making asynchronous training possible. Furthermore, it unifies the theory of reinforcement learning and supervised training into a single framework.
 
-| ![sgrnn.gif](/assets/SGRNN/sgrnn.gif) | 
+| ![sgrnn.gif](https://storage.googleapis.com/deepmind-live-cms-alt/documents/3-10_18kmHY7.gif) | 
 |:--:| 
 | *Sythetic Gradient RNN in action. From Deepmind [blog post](https://deepmind.com/blog/decoupled-neural-networks-using-synthetic-gradients/). Courtesy of Jaderberg et al.* |
 
