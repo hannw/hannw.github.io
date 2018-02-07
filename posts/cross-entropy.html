@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <title>Hann | How to make sense of cross entropy</title>
+  <meta name="description" content="Understanding the most used loss function in deep learning - cross entropy.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta property="og:title" content="How to make sense of cross entropy">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="hannw.github.io/posts/cross-entropy">
+  <meta property="og:description" content="Understanding the most used loss function in deep learning - cross entropy.">
+  <meta property="og:site_name" content="Hann">
+  <meta property="og:image" content="hannw.github.io/assets/og-image.jpg">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:url" content="hannw.github.io/posts/cross-entropy">
+  <meta name="twitter:title" content="How to make sense of cross entropy">
+  <meta name="twitter:description" content="Understanding the most used loss function in deep learning - cross entropy.">
+  <meta name="twitter:image" content="hannw.github.io/assets/og-image.jpg">
+
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link href="hannw.github.io/feed.xml" type="application/rss+xml" rel="alternate" title="Hann Last 10 blog posts" />
+
+  
+
+  
+    <link type="text/css" rel="stylesheet" href="/assets/light.css">
+  
+</head>
+
+<body>
+
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+  <script>if (typeof MathJax != "undefined" && typeof MathJax.Hub != "undefined") 
+                    MathJax.Hub.Queue(['Typeset', MathJax.Hub]);</script>
+  <script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function () {
+    document.getElementById("hide_page").style.visibility = "";
+  });
+</script>
+
+<div id="hide_page" style="visibility:hidden">
+  <main role="main">
+    <div class="grid grid-centered">
+      <div class="grid-cell">
+        <nav class="header-nav reveal">
+  <a href="/" class="header-logo" title="Hann">Hann <small>AI, ML, Data Science</small></a>
+  <ul class="header-links">
+    
+      <li>
+        <a href="/about" title="About me">
+          <span class="icon icon-android-person"></span>
+        </a>
+      </li>
+    
+    
+    
+    
+      <li>
+        <a href="https://github.com/hannw" target="_blank" title="GitHub">
+          <span class="icon icon-social-github"></span>
+        </a>
+      </li>
+    
+    
+    
+    
+      <li>
+        <a href="https://www.linkedin.com/in/hann-wang-4951442b" target="_blank" title="LinkedIn">
+          <span class="icon icon-social-linkedin"></span>
+        </a>
+      </li>
+    
+    
+    
+      <li>
+        <a href="mailto:lostkingwwwth@gmail.com" title="Email">
+          <span class="icon icon-at"></span>
+        </a>
+      </li>
+    
+    
+  </ul>
+</nav>
+
+        <article class="article reveal">
+          <header class="article-header">
+            <h1>How to make sense of cross entropy</h1>
+            <p>Understanding the most used loss function in deep learning - cross entropy.</p>
+            <div class="article-list-footer">
+              <span class="article-list-date">
+                April 16, 2017
+              </span>
+              <span class="article-list-divider">-</span>
+              <span class="article-list-minutes">
+                
+                
+                  5 minute read
+                
+              </span>
+              <span class="article-list-divider">-</span>
+              <div class="article-list-tags">
+                
+                  <a href="/tag/loss function">loss function</a>
+                
+                  <a href="/tag/machinelearning">machinelearning</a>
+                
+              </div>
+            </div>
+          </header>
+
+          <div class="article-content">
+            <p>Cross entropy is the most widely used loss function in deep learning applications. Having a firm grasp on this final layer of model training will help you understand what is actually going on under the hood.</p>
+
+<p>I am going to make this dead simple. We can view cross entropy in two ways. The probabilistic way and the information theoretic way. In my opinion, the probabilistic way makes more intuitive sense when applied to machine learning, so I will introduce it first. For the inquistive mind, you can read on to the second part about the information theory.</p>
+
+<h3 id="probabilistic-view">Probabilistic View</h3>
+<p>Cross entropy is defined in a discrete case for one training example as</p>
+
+<script type="math/tex; mode=display">\text{H}(p(y), q(y)) = \sum_{y \in \Omega} -p(y) \log q(y) = -\text{E}_{p}[\log q(\hat{Y}=y)]</script>
+
+<p>, where \(q\) is the estimated probability distribution of the output label, \(p\) is the actual distribution of the output label, \(\Omega\) is the space of all the possible output label. The cross entropy is just the minus of the expected log likelyhood of your estimation. When you minimize the cross entropy loss during training, you are essentially just maximizing (due to the minus sign) the expected log likelyhood of your estimation. In other words, this is no different than the maximum log likelyhood estimation in most of the regression and classification that you are familiar with in statistics.</p>
+
+<p>Let us write this down in a more general, multiple data point case. Assuming you have \(n\) training data points, and \(m\) output labels,</p>
+
+<p><script type="math/tex">\text{loss} = \sum_{i=1}^n\text{H}(p(Y_i), q(\hat{Y}_i)) = \sum_{i=1}^n\sum_{j=1}^m -p(Y_i = y_j) \log q(\hat{Y}_i = y_j)</script>.</p>
+
+<p>Note how I seperated the random variables, \(Y_i\) and \(\hat{Y}_i\), and the values, \(y_j\), to make the semantics clearer<sup><a href="#footnote1">1</a></sup>.</p>
+
+<p>For a 2 classes problem, as in logistic regression, some people like to express cross entropy in this alternative form</p>
+
+<p><script type="math/tex">\text{loss} = \sum_{i=1}^n \eta_i log (q_i) + (1 - \eta_i) log(1 - q_i)</script>.</p>
+
+<p>, where \(\eta_i\) is the \(i\)th output label in the two cases\(\left\{0, 1\right\}\) and \(q_i = q(\hat{Y}_i = 1)\). You will see this form in some machine learning textbook.</p>
+
+<h3 id="information-theoretic-view">Information Theoretic View</h3>
+<p>Cross entropy can also be seen as the quantity of information you are expected to receive given an alternitive decoding scheme. What do we mean by alternitive decoding scheme here? To understand this, we need to first understand what information means.</p>
+
+<p>In information theory, the quantity of information for a receiver is related to the probability distribution of the signal sending out from the source. More precisely, the information content is quantified by \(-\log\,p(E)\) of some event \(E\). For example, to encode a fair coin toss, which has 0.5 probability of having a head. You recieve \(-\log(0.5) = 1\) bit of information each time you see a head shows up on the receiver end. We call this bit one shannon. Note that the information content does not directly correspond to how many digits in order to encode this message; the informtion content here correspond to how rare the event actually happens. The consequence of how this rareness influences encoding is a much more complex issue, it demands a solid understanding of encoding concept (Huffman encoding, data compression, …, etc) and the real transmission scheme used by engineers; I listed some good resources at the bottom to help you understand it. For now, just bare in mind that rareness equals information content.</p>
+
+<p>This makes intuitive sense. Let’s say if you have a coin that has head on both sides. There is no need to check whether it’s head or tail. Therefore, the information content is \(-\log 1 = 0\) shannon. On the contrary, if there is a rare event, such as an earthquak that have 1/4096 chance of happening tomorrow; it is worth 12 shannon. Knowing a rare event is much more informative and valuable than knowing the mundane.</p>
+
+<p>Over the course of transmission, the average information content, or shannon, the receiver expect to see is known as Shannon entropy, and expressed as</p>
+
+<p><script type="math/tex">\text{H}(p) = \sum_{E \in \mathcal{E}} -p(E)log\, p(E)</script>.</p>
+
+<p>This tells you how much information content you are expect to receive, given perfect knowledge of the underlying probability distribution. This looks very similar to cross entropy which reads</p>
+
+<p><script type="math/tex">\text{H}(p, q) = \sum_{E \in \mathcal{E}} -p(E)log\, q(E)</script>.</p>
+
+<p>The only difference is in the log term. The \(q\) here correspond to the probability distribution of events that the receiver thinks it is. Let’s say if a receiver have perfect knowledge of what the sending end probability distribution looks like, then the cross entropy will just be equal to entropy. What if the receiver have a wrong decoding scheme (or wrong assumption about the probability distribution on the sender end)? It turns out that you will always be too optimistic about how much information you will receive. In other words,</p>
+
+<p><script type="math/tex">\text{H}(p, q) \ge \text{H}(p)</script>.</p>
+
+<p>When you are using a wrong decoding scheme, you will always expect more information to be received than you actually do receive. Having wrong expectation will always result in dissapointment (surprise surprise!). You can calculate the difference between your expectation and the true expectation. This is called Kullback–Leibler divergence and defined as</p>
+
+<!-- 
+$$ D_{KL}(p) = \text{H}(p, q) \le \text{H}(p) $$.
+ -->
+
+<p><script type="math/tex">D_{KL}(p\|q) = \text{H}(p, q) - \text{H}(p) \ge 0</script>.</p>
+
+<p>KL divergence is the one that makes more intuitive sense when used as a loss function since it measures how different \(p\) and \(q\) are, and we are always onto the quest of approximating \(p\) by \(q\). In fact, KL divergence is very often used in machine learning as a loss function; for instance, when applied to variational type of problem. Since the underlying distribution \(p\) does not change, the entropy term is a constant; optimizing KL divergence is just the same as optimizing cross entropy.</p>
+
+<p>Phewww, that is a lot to absorb. Why should we learn both view points? As Richard Feynman <a href="https://www.youtube.com/watch?v=NM-zWTU7X-k&amp;t=2s">pointed out</a>, if there are two competing theories that are mathematically equivalent, it is still useful to learn both, since in some cases only one of those theories will provide you the right kind of mental understanding to unlock deeper truth. So, just like any ML practitioner, I chose to suck it.</p>
+
+<p>There is still a mystery in the deep learning field why cross entropy loss works much better in training a deep network than using MSE. The rule of thumb nowadays is you need to discretize your output label even if you are faced with a continuous output space. I am planning on looking into this issue in the future because I constantly encounter regression type of problem in my daily work. I welcome any suggestion and discussion in this matter.</p>
+
+<p><small>
+<a name="footnote1">1</a>: Note in the literature, people often write \(p(Y=y)\) as \(p(y)\), and \(Y\) sometimes not subscripted. This shorthand often causes trouble in understanding the operation that is actually being done. For example, in the regular model fitting when we deal with n output label, the outputs are actually modeled as n random variables \({Y_1,…,Y_n}\) and each random variable has its own probability distribution. The estimations are another n random variables \({\hat{Y}_1,…, \hat{Y}_n}\). Using just \(Y\) without subscript gave you the wrong mental picture that all output labels share the same distribution, while in fact they don’t.
+</small></p>
+
+<p>Some useful links.</p>
+
+<ol>
+  <li><a href="http://worrydream.com/refs/Shannon%20-%20A%20Mathematical%20Theory%20of%20Communication.pdf">A Mathematical Theory of Communication</a> - the seminal work of Claude Shannon</li>
+  <li><a href="https://arxiv.org/pdf/1405.2061.pdf">Understanding Shannon’s Entropy metric for Information</a></li>
+  <li><a href="https://www.google.com/url?sa=t&amp;rct=j&amp;q=&amp;esrc=s&amp;source=web&amp;cd=1&amp;cad=rja&amp;uact=8&amp;ved=0ahUKEwjJqcS3y6fTAhUosVQKHWu_B98QFgglMAA&amp;url=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FCross_entropy&amp;usg=AFQjCNFxTG-ICjvkx598wpX_6xhnq1Tw3Q&amp;sig2=ZR6GFDjnUveOqbCLS_y1BQ">Wiki - Cross Entropy</a></li>
+  <li><a href="https://www.google.com/url?sa=t&amp;rct=j&amp;q=&amp;esrc=s&amp;source=web&amp;cd=3&amp;cad=rja&amp;uact=8&amp;ved=0ahUKEwjJqcS3y6fTAhUosVQKHWu_B98QFgg8MAI&amp;url=https%3A%2F%2Frdipietro.github.io%2Ffriendly-intro-to-cross-entropy-loss%2F&amp;usg=AFQjCNEJfYOWMzbYXcmLYJ2-iWFBB-Vj1Q&amp;sig2=pD32vI_znICFohO-nXXchg">A Friendly Introduction to Cross-Entropy Loss</a></li>
+</ol>
+
+          </div>
+
+          <div class="article-share">
+            
+            <a href="" title="Share on Twitter" onclick="window.open('https://twitter.com/home?status=How to make sense of cross entropy - hannw.github.io/posts/cross-entropy ', 'newwindow', 'width=500, height=225'); return false;" data-turbolinks="false">
+              <svg enable-background="new 0 0 128 128" width="15px" version="1.1" viewBox="0 0 128 128" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="_x37__stroke"><g id="Twitter"><rect clip-rule="evenodd" fill="none" fill-rule="evenodd" height="128" width="128"/><path clip-rule="evenodd" d="M128,23.294    c-4.703,2.142-9.767,3.59-15.079,4.237c5.424-3.328,9.587-8.606,11.548-14.892c-5.079,3.082-10.691,5.324-16.687,6.526    c-4.778-5.231-11.608-8.498-19.166-8.498c-14.493,0-26.251,12.057-26.251,26.927c0,2.111,0.225,4.16,0.676,6.133    C41.217,42.601,21.871,31.892,8.91,15.582c-2.261,3.991-3.554,8.621-3.554,13.552c0,9.338,4.636,17.581,11.683,22.412    c-4.297-0.131-8.355-1.356-11.901-3.359v0.331c0,13.051,9.053,23.937,21.074,26.403c-2.201,0.632-4.523,0.948-6.92,0.948    c-1.69,0-3.343-0.162-4.944-0.478c3.343,10.694,13.035,18.483,24.53,18.691c-8.986,7.227-20.315,11.533-32.614,11.533    c-2.119,0-4.215-0.123-6.266-0.37c11.623,7.627,25.432,12.088,40.255,12.088c48.309,0,74.717-41.026,74.717-76.612    c0-1.171-0.023-2.342-0.068-3.49C120.036,33.433,124.491,28.695,128,23.294" fill-rule="evenodd" id="Twitter_1_"/></g></g></svg>
+            </a>
+            <a href="" title="Share on Facebook" onclick="window.open('https://www.facebook.com/sharer/sharer.php?u=hannw.github.io/posts/cross-entropy', 'newwindow', 'width=500, height=500'); return false;" data-turbolinks="false">
+              <svg enable-background="new 0 0 128 128" width="15px" version="1.1" viewBox="0 0 128 128" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="_x31__stroke"><g id="Facebook_1_"><rect fill="none" height="128" width="128"/><path clip-rule="evenodd" d="M68.369,128H7.065C3.162,128,0,124.836,0,120.935    V7.065C0,3.162,3.162,0,7.065,0h113.871C124.837,0,128,3.162,128,7.065v113.87c0,3.902-3.163,7.065-7.064,7.065H88.318V78.431    h16.638l2.491-19.318H88.318V46.78c0-5.593,1.553-9.404,9.573-9.404l10.229-0.004V20.094c-1.769-0.235-7.841-0.761-14.906-0.761    c-14.749,0-24.846,9.003-24.846,25.535v14.246H51.688v19.318h16.681V128z" fill-rule="evenodd" id="Facebook"/></g></g></svg>
+            </a>
+            <a href="" title="Share on Google+" onclick="window.open('https://plus.google.com/share?url=hannw.github.io/posts/cross-entropy', 'newwindow', 'width=550, height=400'); return false;" data-turbolinks="false">
+              <svg enable-background="new 0 0 128 128" version="1.1" viewBox="0 0 128 128" width="20px" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="_x35__stroke"><g id="Google_Plus"><rect clip-rule="evenodd" fill="none" fill-rule="evenodd" height="128" width="128"/><path clip-rule="evenodd" d="M40.654,55.935v16.13    c0,0,15.619-0.021,21.979-0.021C59.189,82.5,53.834,88.194,40.654,88.194c-13.338,0-23.748-10.832-23.748-24.194    s10.41-24.194,23.748-24.194c7.052,0,11.607,2.483,15.784,5.944c3.344-3.35,3.065-3.828,11.573-11.877    c-7.222-6.586-16.822-10.6-27.357-10.6C18.201,23.273,0,41.507,0,64c0,22.493,18.201,40.727,40.654,40.727    c33.561,0,41.763-29.275,39.044-48.792H40.654z M113.912,56.742V42.628h-10.063v14.113H89.358v10.081h14.491v14.517h10.063V66.823    H128V56.742H113.912z" fill-rule="evenodd" id="Google_Plus_1_"/></g></g></svg>
+            </a>
+          </div>
+
+          
+            <div id="disqus_thread" class="article-comments"></div>
+            <script>
+              (function() {
+                  var d = document, s = d.createElement('script');
+                  s.src = '//hannw-github-io.disqus.com/embed.js';
+                  s.setAttribute('data-timestamp', +new Date());
+                  (d.head || d.body).appendChild(s);
+              })();
+            </script>
+            <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+          
+        </article>
+        <footer class="footer reveal">
+  <p>
+    &copy 2018 Hann Wang. All rights reserved. Powered by <a href="https://github.com/nielsenramon/chalk" target="_blank" title="Download Chalk">Chalk</a>.
+    <!-- Chalk is a high quality, completely customizable, performant and 100% free
+    blog template for Jekyll built by
+    <a href="/about" title="About me">Nielsen Ramon</a>. Download it <a href="https://github.com/nielsenramon/chalk" target="_blank" title="Download Chalk">here</a>. -->
+  </p>
+</footer>
+
+      </div>
+    </div>
+  </main>
+  
+  <script src="https://ajax.googleapis.com/ajax/libs/webfont/1.6.16/webfont.js"></script>
+  <script>
+    WebFont.load({
+      google: {
+        families: ['Cormorant Garamond:700', 'Lato:300,400,700']
+      }
+    });
+  </script>
+
+
+
+  <script>
+    window.ga=function(){ga.q.push(arguments)};ga.q=[];ga.l=+new Date;
+    ga('create','UA-113253527-1','auto');ga('send','pageview')
+  </script>
+  <script src="https://www.google-analytics.com/analytics.js" async defer></script>
+
+
+<!-- <script type="text/javascript" async
+  src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML">
+</script> -->
+
+<script type="text/javascript" src="/assets/vendor.js"></script>
+<script type="text/javascript" src="/assets/application.js"></script>
+
+</div>
+</body>
+</html>

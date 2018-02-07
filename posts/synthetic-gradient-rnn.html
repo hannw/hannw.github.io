@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <title>Hann | How to Implement Synthetic Gradient for RNN in Tensorflow</title>
+  <meta name="description" content="The theory of synthetic gradient for RNN, it's implications, and how to implement it in tensorflow">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta property="og:title" content="How to Implement Synthetic Gradient for RNN in Tensorflow">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="hannw.github.io/posts/synthetic-gradient-rnn">
+  <meta property="og:description" content="The theory of synthetic gradient for RNN, it's implications, and how to implement it in tensorflow">
+  <meta property="og:site_name" content="Hann">
+  <meta property="og:image" content="hannw.github.io/assets/og-image.jpg">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:url" content="hannw.github.io/posts/synthetic-gradient-rnn">
+  <meta name="twitter:title" content="How to Implement Synthetic Gradient for RNN in Tensorflow">
+  <meta name="twitter:description" content="The theory of synthetic gradient for RNN, it's implications, and how to implement it in tensorflow">
+  <meta name="twitter:image" content="hannw.github.io/assets/og-image.jpg">
+
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link href="hannw.github.io/feed.xml" type="application/rss+xml" rel="alternate" title="Hann Last 10 blog posts" />
+
+  
+
+  
+    <link type="text/css" rel="stylesheet" href="/assets/light.css">
+  
+</head>
+
+<body>
+
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+  <script>if (typeof MathJax != "undefined" && typeof MathJax.Hub != "undefined") 
+                    MathJax.Hub.Queue(['Typeset', MathJax.Hub]);</script>
+  <script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function () {
+    document.getElementById("hide_page").style.visibility = "";
+  });
+</script>
+
+<div id="hide_page" style="visibility:hidden">
+  <main role="main">
+    <div class="grid grid-centered">
+      <div class="grid-cell">
+        <nav class="header-nav reveal">
+  <a href="/" class="header-logo" title="Hann">Hann <small>AI, ML, Data Science</small></a>
+  <ul class="header-links">
+    
+      <li>
+        <a href="/about" title="About me">
+          <span class="icon icon-android-person"></span>
+        </a>
+      </li>
+    
+    
+    
+    
+      <li>
+        <a href="https://github.com/hannw" target="_blank" title="GitHub">
+          <span class="icon icon-social-github"></span>
+        </a>
+      </li>
+    
+    
+    
+    
+      <li>
+        <a href="https://www.linkedin.com/in/hann-wang-4951442b" target="_blank" title="LinkedIn">
+          <span class="icon icon-social-linkedin"></span>
+        </a>
+      </li>
+    
+    
+    
+      <li>
+        <a href="mailto:lostkingwwwth@gmail.com" title="Email">
+          <span class="icon icon-at"></span>
+        </a>
+      </li>
+    
+    
+  </ul>
+</nav>
+
+        <article class="article reveal">
+          <header class="article-header">
+            <h1>How to Implement Synthetic Gradient for RNN in Tensorflow</h1>
+            <p>The theory of synthetic gradient for RNN, it's implications, and how to implement it in tensorflow</p>
+            <div class="article-list-footer">
+              <span class="article-list-date">
+                January 27, 2018
+              </span>
+              <span class="article-list-divider">-</span>
+              <span class="article-list-minutes">
+                
+                
+                  10 minute read
+                
+              </span>
+              <span class="article-list-divider">-</span>
+              <div class="article-list-tags">
+                
+                  <a href="/tag/metalearning">metalearning</a>
+                
+                  <a href="/tag/machinelearning">machinelearning</a>
+                
+              </div>
+            </div>
+          </header>
+
+          <div class="article-content">
+            <p>Here I described a way to implement <a href="https://arxiv.org/abs/1608.05343">Synthetic Gradient</a> for RNN in tensorflow, and the intuition behind it. For the full implementation, please check out my <a href="https://github.com/hannw/sgrnn">github repo</a>.</p>
+
+<p>Synthetic gradient, or the decoupled neural interface (DNI), was probably the most exciting paper I read about last year. Synthetic gradient manages to decouple all layers of a deep network, making asynchronous training possible. Furthermore, it unifies the theory of reinforcement learning and supervised training into a single framework.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: center"><img src="https://storage.googleapis.com/deepmind-live-cms-alt/documents/3-10_18kmHY7.gif" alt="sgrnn.gif" /></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: center"><em>Sythetic Gradient RNN in action. From Deepmind <a href="https://deepmind.com/blog/decoupled-neural-networks-using-synthetic-gradients/">blog post</a>. Courtesy of Jaderberg et al.</em></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>When applied to recurrent neural network, it has some other important implications. I often have to deal with recurrent neural network that runs thousands of time steps at work. To train a RNN with such a long time horizon, we can only use truncated back propagation through time (TBPTT), due to memory constraint of caching all time steps. It has been shown that being able to persist the hidden state through time helps with the trianing. However, without propagating the gradient from the future, the error signal cannot reach and correct the mistake made a long time ago, so a long range dynamics cannot truely be learnt. Now, by using synthetic gradient, we can create an unbiased estimate of the true gradient, therefore making back propagation through time to infinity possible.</p>
+
+<p>Given all the theoretical benefit, I cannot wait to start training all my RNNs by synthetic gradient, but most of the synthetic gradient online only covers FCN. So, I decided to write my own version for RNN.</p>
+
+<h2 id="preparing-the-training-data">Preparing the Training Data</h2>
+
+<p>Synthetic gradient for RNN is slightly different from that of a feedforward neural network. In a RNN, the hidden states needs to be saved for the next time step. Also, since calculating the target for synthetic gradient is dependent on one future time step, the inputs in the future also needs to be fed during training time. Let’s see how we can implement this in practice, using the PTB dataset.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">pdb_state_saver</span><span class="p">(</span><span class="n">raw_data</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">num_steps</span><span class="p">,</span> <span class="n">init_states</span><span class="p">,</span>
+                    <span class="n">num_unroll</span><span class="p">,</span> <span class="n">num_threads</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">capacity</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+                    <span class="n">allow_small_batch</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">epoch</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+  <span class="n">data_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">raw_data</span><span class="p">)</span>
+  <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">name_scope</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="s">"PTBProducer"</span><span class="p">,</span> <span class="p">[</span><span class="n">raw_data</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">num_steps</span><span class="p">]):</span>
+    <span class="n">raw_data</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">raw_data</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s">"raw_data"</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">n_seq</span> <span class="o">=</span> <span class="p">(</span><span class="n">data_len</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">num_steps</span>
+    
+    <span class="c"># prepare the input data x and output label y as tensors </span>
+    <span class="n">raw_data_x</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">raw_data</span><span class="p">[</span><span class="mi">0</span> <span class="p">:</span> <span class="n">n_seq</span> <span class="o">*</span> <span class="n">num_steps</span><span class="p">],</span>
+                      <span class="p">[</span><span class="n">n_seq</span><span class="p">,</span> <span class="n">num_steps</span><span class="p">])</span>
+    <span class="n">raw_data_y</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">raw_data</span><span class="p">[</span><span class="mi">1</span> <span class="p">:</span> <span class="p">(</span><span class="n">n_seq</span> <span class="o">*</span> <span class="n">num_steps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)],</span>
+                      <span class="p">[</span><span class="n">n_seq</span><span class="p">,</span> <span class="n">num_steps</span><span class="p">])</span>
+    
+    <span class="c"># we prepare the future intputs and labels by rolling the data</span>
+    <span class="n">next_raw_data_x</span> <span class="o">=</span> <span class="n">_circular_shift</span><span class="p">(</span><span class="n">raw_data_x</span><span class="p">,</span> <span class="n">num_unroll</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">next_raw_data_y</span> <span class="o">=</span> <span class="n">_circular_shift</span><span class="p">(</span><span class="n">raw_data_y</span><span class="p">,</span> <span class="n">num_unroll</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c"># the data are fed to tensorflow by the Dataset API</span>
+    <span class="n">keys</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span>
+      <span class="p">[</span><span class="s">'seq_{}'</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_seq</span><span class="p">)],</span> <span class="n">name</span><span class="o">=</span><span class="s">"key"</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">string</span><span class="p">)</span>
+    <span class="n">seq_len</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">tile</span><span class="p">([</span><span class="n">num_steps</span><span class="p">],</span> <span class="p">[</span><span class="n">n_seq</span><span class="p">])</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="o">.</span><span class="n">from_tensor_slices</span><span class="p">(</span>
+      <span class="p">(</span><span class="n">keys</span><span class="p">,</span> <span class="n">raw_data_x</span><span class="p">,</span> <span class="n">next_raw_data_x</span><span class="p">,</span> <span class="n">raw_data_y</span><span class="p">,</span> <span class="n">next_raw_data_y</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">))</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">epoch</span><span class="p">)</span>
+    <span class="n">iterator</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">make_one_shot_iterator</span><span class="p">()</span>
+
+    <span class="o">......</span></code></pre></figure>
+
+<p>After preparing the data, we feed the data points into state saving queue. This will produce a <code class="highlighter-rouge">NextQueuedSequenceBatch</code> object which contains the state saver, and the properly batched sequences.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python">    <span class="n">next_key</span><span class="p">,</span> <span class="n">next_x</span><span class="p">,</span> <span class="n">next_next_x</span><span class="p">,</span> <span class="n">next_y</span><span class="p">,</span> <span class="n">next_next_y</span><span class="p">,</span> <span class="n">next_len</span> <span class="o">=</span> <span class="n">iterator</span><span class="o">.</span><span class="n">get_next</span><span class="p">()</span>
+    <span class="n">seq_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s">'x'</span><span class="p">:</span><span class="n">next_x</span><span class="p">,</span> <span class="s">'next_x'</span><span class="p">:</span><span class="n">next_next_x</span><span class="p">,</span> <span class="s">'y'</span><span class="p">:</span><span class="n">next_y</span><span class="p">,</span> <span class="s">'next_y'</span><span class="p">:</span><span class="n">next_next_y</span><span class="p">}</span>
+    <span class="c"># The following will instantiate a `NextQueuedSequenceBatch` as state saver</span>
+    <span class="n">batch</span> <span class="o">=</span> <span class="n">batch_sequences_with_states</span><span class="p">(</span>
+      <span class="n">input_key</span><span class="o">=</span><span class="n">next_key</span><span class="p">,</span>
+      <span class="n">input_sequences</span><span class="o">=</span><span class="n">seq_dict</span><span class="p">,</span>
+      <span class="n">input_context</span><span class="o">=</span><span class="p">{},</span>
+      <span class="n">input_length</span><span class="o">=</span><span class="n">next_len</span><span class="p">,</span>
+      <span class="n">initial_states</span><span class="o">=</span><span class="n">init_states</span><span class="p">,</span>
+      <span class="n">num_unroll</span><span class="o">=</span><span class="n">num_unroll</span><span class="p">,</span>
+      <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span>
+      <span class="n">num_threads</span><span class="o">=</span><span class="n">num_threads</span><span class="p">,</span>
+      <span class="n">capacity</span><span class="o">=</span><span class="n">capacity</span><span class="p">,</span>
+      <span class="n">allow_small_batch</span><span class="o">=</span><span class="n">allow_small_batch</span><span class="p">,</span>
+      <span class="n">pad</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+  <span class="k">return</span> <span class="n">batch</span></code></pre></figure>
+
+<p>For more information about the state saving queue, check out the RNN tutorial in <a href="https://www.youtube.com/watch?v=RIR_-Xlbp7s">Tensorflow Dev Summet 2017</a>.</p>
+
+<p>Note that in the original paper, they store \(\Delta t + 1\) time span for each \(\Delta t\) time span. I chose to store \(2 \Delta t\) inputs and labels, since the future information \(\Delta t \leq t &lt; 2\Delta t\) could be useful for computing synthetic gradient, if you have other customized architecture of DNI.</p>
+
+<h2 id="stitching-the-networks-together">Stitching The Networks Together</h2>
+
+<p>Perhaps the hardest part in implementing the synthetic gradient is to figure out which exactly hidden states to use while calculating the synthetic gradient. To make the steps slightly clearer for the sack of implementation, let’s rederive the equations. The total gradient of a RNN is</p>
+
+<script type="math/tex; mode=display">% <![CDATA[
+\begin{align}
+\sum^{\infty}_{\tau=t} \frac{\partial L_\tau}{\partial \theta}
+&= \sum^{t + \Delta t}_{\tau = t} \frac{\partial L_\tau}{\partial \theta} + (\sum^{\infty}_{\tau = t + \Delta t} \frac{\partial L_\tau}{\partial h_{t + \Delta t -1}}) \frac{\partial h_{t+ \Delta t - 1}}{\partial \theta} \\
+&=\sum^{t + \Delta t}_{\tau = t} \frac{\partial L_\tau}{\partial \theta} + \delta_{t + \Delta t} \frac{\partial h_{t + \Delta t - 1}}{\partial \theta} \tag{1}\label{eq:sgderive}
+\end{align} %]]></script>
+
+<p>, where the future gradient is defined as</p>
+
+<script type="math/tex; mode=display">\delta_t \equiv \sum^{\infty}_{\tau = t} \frac{\partial L_\tau}{\partial h_{t -1}}.</script>
+
+<p>Note that the total gradient of an RNN is just the local gradient in time span \(\Delta t\), plus the future gradient term. Instead of computing the future gradient, we can ask the rnn to synthesize the gradient using a linear approximator.</p>
+
+<script type="math/tex; mode=display">\hat{\delta}_t = f(h_t) = W h_t + b \tag{2}\label{eq:sg}</script>
+
+<p>Now, it should become clear that the entire point of synthetic gradient, is to make the network guess the future gradient for you, so you can train the network without knowing any future data.</p>
+
+<p>It all sounds too good to be true, except that we can actually make the network do educated guess by supervised training. If we need to compute the infinitely long future gradient, aren’t we back to square one? Since the target gradient is not tracktable, we can use a little trick to bootstrap the gradient. Suppose in a time span, \(\Delta t\),</p>
+
+<script type="math/tex; mode=display">\delta_t = \sum_{\tau=t}^{t+\Delta t -1} \frac{\partial L_\tau}{\partial h_{t-1}} + \delta_{t + \Delta t}\frac{\partial h_{t + \Delta t - 1}}{\partial h_{t-1}} \tag{3}\label{eq:targetgrad}</script>
+
+<p>where \(h_{t-1}\) is the initial hidden state, and \(h_{t + \Delta t-1}\) is the final state in the time span. This formula says that the target for synthetic gradient is the gradient of the loss in the time span with respect to the initial state, plus the synthetic gradient in the next time span times the derivative of the last hidden state with respect to the initial state. This bootstrap procedure is the part that unifies supervised training with reinforcement learning. The bootstrap procedure is analogous to TD(\(\lambda\)).</p>
+
+<h3 id="propagate-rnn-state">Propagate RNN State</h3>
+
+<p>The synthetic graident is produced by the first core of RNN at each time chunk, \(\Delta t\). We use a simple dense layer, or an <code class="highlighter-rouge">OutputProjectionWrapper</code>, to compute the synthetic gradient. The dense layer produce both the output logits and the synthetic graident.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python">    <span class="bp">self</span><span class="o">.</span><span class="n">_cell</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">contrib</span><span class="o">.</span><span class="n">rnn</span><span class="o">.</span><span class="n">OutputProjectionWrapper</span><span class="p">(</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_cell</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_size</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">total_state_size</span><span class="p">)</span></code></pre></figure>
+
+<p>Next we use the <code class="highlighter-rouge">static_state_saving_rnn</code> to propagate the RNN core through \(\Delta t\), and save the final state of the RNN to the state saver.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">build_synthetic_gradient_rnn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">sequence_length</span><span class="p">):</span>
+  <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">name_scope</span><span class="p">(</span><span class="s">'RNN'</span><span class="p">):</span>
+    <span class="n">inputs</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">unstack</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_unroll</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">outputs</span><span class="p">,</span> <span class="n">final_state</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">static_state_saving_rnn</span><span class="p">(</span>
+      <span class="n">cell</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cell</span><span class="p">,</span>
+      <span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span>
+      <span class="n">state_saver</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">state_saver</span><span class="p">,</span>
+      <span class="n">state_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">state_name</span><span class="p">,</span>
+      <span class="n">sequence_length</span><span class="o">=</span><span class="n">sequence_length</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">name_scope</span><span class="p">(</span><span class="s">'synthetic_gradient'</span><span class="p">):</span>
+      <span class="n">synthetic_gradient</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="nb">slice</span><span class="p">(</span>
+        <span class="n">outputs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">begin</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_size</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+      <span class="n">synthetic_gradient</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">split</span><span class="p">(</span>
+        <span class="n">synthetic_gradient</span><span class="p">,</span> <span class="n">nest</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state_size</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">name_scope</span><span class="p">(</span><span class="s">'logits'</span><span class="p">):</span>
+      <span class="n">stacked_outputs</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+      <span class="n">logits</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="nb">slice</span><span class="p">(</span><span class="n">stacked_outputs</span><span class="p">,</span> <span class="n">begin</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_size</span><span class="p">])</span>
+
+  <span class="k">return</span> <span class="n">logits</span><span class="p">,</span> <span class="n">final_state</span><span class="p">,</span> <span class="n">synthetic_gradient</span></code></pre></figure>
+
+<h3 id="bootstrap-the-target-of-synthetic-gradient">Bootstrap the Target of Synthetic Gradient</h3>
+
+<p>The synthetic gradient in the next \(\Delta t\) time span needs to be computed in order for us to bootstrap the target synthetic gradient. Fortunately, it only depends on the first core of the next time span.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python">  <span class="k">def</span> <span class="nf">build_next_synthetic_gradient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">final_state</span><span class="p">,</span> <span class="n">next_inputs</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">name_scope</span><span class="p">(</span><span class="s">'next_synthetic_gradient'</span><span class="p">):</span>
+      <span class="n">next_inputs</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">unstack</span><span class="p">(</span><span class="n">next_inputs</span><span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_unroll</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+      <span class="n">next_output</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell</span><span class="p">(</span><span class="n">next_inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">final_state</span><span class="p">)</span>
+      <span class="n">next_synthetic_gradient</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="nb">slice</span><span class="p">(</span>
+        <span class="n">next_output</span><span class="p">,</span> <span class="n">begin</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_size</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+      <span class="n">next_synthetic_gradient</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">split</span><span class="p">(</span>
+        <span class="n">next_synthetic_gradient</span><span class="p">,</span> <span class="n">nest</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state_size</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">next_synthetic_gradient</span></code></pre></figure>
+
+<p>Next, we use the next synthetic gradient to bootstrap the target synthetic gradient like in equation \eqref{eq:targetgrad}.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python">  <span class="k">def</span> <span class="nf">sg_target</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loss</span><span class="p">,</span> <span class="n">next_sg</span><span class="p">,</span> <span class="n">final_state</span><span class="p">):</span>
+    <span class="n">local_grad</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">gradients</span><span class="p">(</span><span class="n">ys</span><span class="o">=</span><span class="n">loss</span><span class="p">,</span> <span class="n">xs</span><span class="o">=</span><span class="n">nest</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_state</span><span class="p">))</span>
+    <span class="n">next_sg</span> <span class="o">=</span> <span class="p">[</span><span class="n">tf</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">is_done</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">grad</span><span class="p">),</span> <span class="n">grad</span><span class="p">)</span> <span class="k">for</span> <span class="n">grad</span> <span class="ow">in</span> <span class="n">next_sg</span><span class="p">]</span>
+    <span class="n">future_grad</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">gradients</span><span class="p">(</span>
+      <span class="n">ys</span><span class="o">=</span><span class="n">nest</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">final_state</span><span class="p">),</span>
+      <span class="n">xs</span><span class="o">=</span><span class="n">nest</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_state</span><span class="p">),</span>
+      <span class="n">grad_ys</span><span class="o">=</span><span class="n">next_sg</span><span class="p">)</span>
+    <span class="c"># for two sequence, the target is bootstrapped</span>
+    <span class="c"># at the end sequence, the target is only single sequence</span>
+    <span class="n">sg_target</span> <span class="o">=</span> <span class="p">[</span><span class="n">tf</span><span class="o">.</span><span class="n">stop_gradient</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">lg</span><span class="p">,</span> <span class="n">fg</span><span class="p">))</span>
+      <span class="k">for</span> <span class="n">lg</span><span class="p">,</span> <span class="n">fg</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">local_grad</span><span class="p">,</span> <span class="n">future_grad</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="n">sg_target</span></code></pre></figure>
+
+<h3 id="compute-the-gradient-for-the-rnn">Compute the gradient for the RNN</h3>
+<p>To compute the gradient in current \(\Delta t\) to train RNN like in equation \eqref{eq:sgderive}, we compute the total gradient by adding the local gradient with the future graidients, which is just the synthetic gradient multiplied by the gradient of the final state. We can pass it in to <code class="highlighter-rouge">tf.gradients</code> using the <code class="highlighter-rouge">grad_ys</code> argument.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python">  <span class="k">def</span> <span class="nf">gradient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loss</span><span class="p">,</span> <span class="n">tvars</span><span class="p">,</span> <span class="n">next_sg</span><span class="p">,</span> <span class="n">final_state</span><span class="p">):</span>
+    <span class="n">grad_local</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">gradients</span><span class="p">(</span><span class="n">ys</span><span class="o">=</span><span class="n">loss</span><span class="p">,</span> <span class="n">xs</span><span class="o">=</span><span class="n">tvars</span><span class="p">,</span> <span class="n">grad_ys</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                              <span class="n">name</span><span class="o">=</span><span class="s">'local_gradients'</span><span class="p">)</span>
+    <span class="n">received_sg</span> <span class="o">=</span> <span class="p">[</span><span class="n">tf</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">is_done</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">nsg</span><span class="p">),</span> <span class="n">nsg</span><span class="p">)</span> <span class="k">for</span> <span class="n">nsg</span> <span class="ow">in</span> <span class="n">next_sg</span><span class="p">]</span>
+    <span class="n">grad_sg</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">gradients</span><span class="p">(</span>
+      <span class="n">ys</span><span class="o">=</span><span class="n">nest</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">final_state</span><span class="p">),</span> <span class="n">xs</span><span class="o">=</span><span class="n">tvars</span><span class="p">,</span> <span class="n">grad_ys</span><span class="o">=</span><span class="n">received_sg</span><span class="p">,</span>
+      <span class="n">name</span><span class="o">=</span><span class="s">'synthetic_gradients'</span><span class="p">)</span>
+    <span class="n">grad</span> <span class="o">=</span> <span class="p">[</span><span class="n">tf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">gl</span><span class="p">,</span> <span class="n">gs</span><span class="p">)</span> <span class="k">if</span> <span class="n">gs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">gl</span> <span class="k">for</span> <span class="n">gl</span><span class="p">,</span> <span class="n">gs</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">grad_local</span><span class="p">,</span> <span class="n">grad_sg</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="n">grad</span></code></pre></figure>
+
+<h3 id="compute-the-gradient-for-synthetic-gradient-core">Compute the gradient for Synthetic Gradient Core</h3>
+<p>To train the RNN for synthetic gradient, we just compute the mean squared loss between the bootstrapped target and the predicted synthetic gradient.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python">    <span class="n">sg_target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sg_target</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">next_sg</span><span class="p">,</span> <span class="n">final_state</span><span class="p">)</span>
+    <span class="n">sg_loss</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">losses</span><span class="o">.</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">labels</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">sg_target</span><span class="p">),</span> <span class="n">predictions</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">sg</span><span class="p">))</span>
+    <span class="n">sg_grad</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">gradients</span><span class="p">(</span><span class="n">ys</span><span class="o">=</span><span class="n">sg_loss</span><span class="p">,</span> <span class="n">xs</span><span class="o">=</span><span class="n">tvars</span><span class="p">)</span></code></pre></figure>
+
+<p>Once you have the gradient of the loss signal and the synthetic gradient, you can start training your network. Just pick your favorite optimizer, and enjoy the benefit of propagating gradient for infitie number of steps. One thing to note is, since RNN operates in time domain, the synthetic gradient, in this case, does not give you the benefit of decoupling and asynchronous training of layers. The network still need to propagate the hidden states step by step. Not that I am complaining though.</p>
+
+          </div>
+
+          <div class="article-share">
+            
+            <a href="" title="Share on Twitter" onclick="window.open('https://twitter.com/home?status=How to Implement Synthetic Gradient for RNN in ... - hannw.github.io/posts/synthetic-gradient-rnn ', 'newwindow', 'width=500, height=225'); return false;" data-turbolinks="false">
+              <svg enable-background="new 0 0 128 128" width="15px" version="1.1" viewBox="0 0 128 128" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="_x37__stroke"><g id="Twitter"><rect clip-rule="evenodd" fill="none" fill-rule="evenodd" height="128" width="128"/><path clip-rule="evenodd" d="M128,23.294    c-4.703,2.142-9.767,3.59-15.079,4.237c5.424-3.328,9.587-8.606,11.548-14.892c-5.079,3.082-10.691,5.324-16.687,6.526    c-4.778-5.231-11.608-8.498-19.166-8.498c-14.493,0-26.251,12.057-26.251,26.927c0,2.111,0.225,4.16,0.676,6.133    C41.217,42.601,21.871,31.892,8.91,15.582c-2.261,3.991-3.554,8.621-3.554,13.552c0,9.338,4.636,17.581,11.683,22.412    c-4.297-0.131-8.355-1.356-11.901-3.359v0.331c0,13.051,9.053,23.937,21.074,26.403c-2.201,0.632-4.523,0.948-6.92,0.948    c-1.69,0-3.343-0.162-4.944-0.478c3.343,10.694,13.035,18.483,24.53,18.691c-8.986,7.227-20.315,11.533-32.614,11.533    c-2.119,0-4.215-0.123-6.266-0.37c11.623,7.627,25.432,12.088,40.255,12.088c48.309,0,74.717-41.026,74.717-76.612    c0-1.171-0.023-2.342-0.068-3.49C120.036,33.433,124.491,28.695,128,23.294" fill-rule="evenodd" id="Twitter_1_"/></g></g></svg>
+            </a>
+            <a href="" title="Share on Facebook" onclick="window.open('https://www.facebook.com/sharer/sharer.php?u=hannw.github.io/posts/synthetic-gradient-rnn', 'newwindow', 'width=500, height=500'); return false;" data-turbolinks="false">
+              <svg enable-background="new 0 0 128 128" width="15px" version="1.1" viewBox="0 0 128 128" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="_x31__stroke"><g id="Facebook_1_"><rect fill="none" height="128" width="128"/><path clip-rule="evenodd" d="M68.369,128H7.065C3.162,128,0,124.836,0,120.935    V7.065C0,3.162,3.162,0,7.065,0h113.871C124.837,0,128,3.162,128,7.065v113.87c0,3.902-3.163,7.065-7.064,7.065H88.318V78.431    h16.638l2.491-19.318H88.318V46.78c0-5.593,1.553-9.404,9.573-9.404l10.229-0.004V20.094c-1.769-0.235-7.841-0.761-14.906-0.761    c-14.749,0-24.846,9.003-24.846,25.535v14.246H51.688v19.318h16.681V128z" fill-rule="evenodd" id="Facebook"/></g></g></svg>
+            </a>
+            <a href="" title="Share on Google+" onclick="window.open('https://plus.google.com/share?url=hannw.github.io/posts/synthetic-gradient-rnn', 'newwindow', 'width=550, height=400'); return false;" data-turbolinks="false">
+              <svg enable-background="new 0 0 128 128" version="1.1" viewBox="0 0 128 128" width="20px" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="_x35__stroke"><g id="Google_Plus"><rect clip-rule="evenodd" fill="none" fill-rule="evenodd" height="128" width="128"/><path clip-rule="evenodd" d="M40.654,55.935v16.13    c0,0,15.619-0.021,21.979-0.021C59.189,82.5,53.834,88.194,40.654,88.194c-13.338,0-23.748-10.832-23.748-24.194    s10.41-24.194,23.748-24.194c7.052,0,11.607,2.483,15.784,5.944c3.344-3.35,3.065-3.828,11.573-11.877    c-7.222-6.586-16.822-10.6-27.357-10.6C18.201,23.273,0,41.507,0,64c0,22.493,18.201,40.727,40.654,40.727    c33.561,0,41.763-29.275,39.044-48.792H40.654z M113.912,56.742V42.628h-10.063v14.113H89.358v10.081h14.491v14.517h10.063V66.823    H128V56.742H113.912z" fill-rule="evenodd" id="Google_Plus_1_"/></g></g></svg>
+            </a>
+          </div>
+
+          
+            <div id="disqus_thread" class="article-comments"></div>
+            <script>
+              (function() {
+                  var d = document, s = d.createElement('script');
+                  s.src = '//hannw-github-io.disqus.com/embed.js';
+                  s.setAttribute('data-timestamp', +new Date());
+                  (d.head || d.body).appendChild(s);
+              })();
+            </script>
+            <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+          
+        </article>
+        <footer class="footer reveal">
+  <p>
+    &copy 2018 Hann Wang. All rights reserved. Powered by <a href="https://github.com/nielsenramon/chalk" target="_blank" title="Download Chalk">Chalk</a>.
+    <!-- Chalk is a high quality, completely customizable, performant and 100% free
+    blog template for Jekyll built by
+    <a href="/about" title="About me">Nielsen Ramon</a>. Download it <a href="https://github.com/nielsenramon/chalk" target="_blank" title="Download Chalk">here</a>. -->
+  </p>
+</footer>
+
+      </div>
+    </div>
+  </main>
+  
+  <script src="https://ajax.googleapis.com/ajax/libs/webfont/1.6.16/webfont.js"></script>
+  <script>
+    WebFont.load({
+      google: {
+        families: ['Cormorant Garamond:700', 'Lato:300,400,700']
+      }
+    });
+  </script>
+
+
+
+  <script>
+    window.ga=function(){ga.q.push(arguments)};ga.q=[];ga.l=+new Date;
+    ga('create','UA-113253527-1','auto');ga('send','pageview')
+  </script>
+  <script src="https://www.google-analytics.com/analytics.js" async defer></script>
+
+
+<!-- <script type="text/javascript" async
+  src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML">
+</script> -->
+
+<script type="text/javascript" src="/assets/vendor.js"></script>
+<script type="text/javascript" src="/assets/application.js"></script>
+
+</div>
+</body>
+</html>
